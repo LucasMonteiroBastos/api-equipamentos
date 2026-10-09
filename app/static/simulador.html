@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador da API</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --texto: #1f2933; --suave: #616e7c; --borda: #d9e2ec;
+    --codigo-bg: #f1f5f9; --primaria: #2563eb; --link: #2563eb;
+    --get: #0284c7; --post: #16a34a; --patch: #d97706; --delete: #dc2626;
+    --s2: #16a34a; --s4: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a; --card: #1e293b; --texto: #e2e8f0; --suave: #94a3b8; --borda: #334155;
+      --codigo-bg: #0b1220; --primaria: #3b82f6; --link: #93c5fd;
+      --get: #38bdf8; --post: #4ade80; --patch: #fbbf24; --delete: #f87171;
+      --s2: #4ade80; --s4: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: var(--bg); color: var(--texto); }
+  a { color: var(--link); }
+  nav { display: flex; gap: 4px; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--borda); }
+  nav a { padding: 6px 12px; border-radius: 6px; text-decoration: none; color: var(--texto); }
+  nav a.ativo { background: var(--primaria); color: #fff; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .sub { color: var(--suave); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--borda); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 1rem; }
+  .grade { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 800px) { .grade { grid-template-columns: 1fr; } }
+
+  .operacoes { display: grid; gap: 6px; margin-bottom: 14px; }
+  .op { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--borda);
+        border-radius: 6px; background: transparent; color: var(--texto); cursor: pointer; text-align: left; font-size: .9rem; }
+  .op.sel { border-color: var(--primaria); outline: 2px solid var(--primaria); }
+  .metodo { font-family: Consolas, monospace; font-weight: 700; font-size: .8rem; min-width: 56px; }
+  .GET { color: var(--get); } .POST { color: var(--post); } .PATCH { color: var(--patch); } .DELETE { color: var(--delete); }
+
+  label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--suave); margin-bottom: 10px; }
+  input, select, textarea { padding: 8px 10px; border: 1px solid var(--borda); border-radius: 6px; font-size: .9rem;
+                            background: var(--bg); color: var(--texto); }
+  textarea { font-family: Consolas, monospace; min-height: 150px; resize: vertical; }
+  button.enviar { width: 100%; padding: 10px; border: 0; border-radius: 6px; background: var(--primaria); color: #fff;
+                  font-size: .95rem; cursor: pointer; }
+  .erros { display: flex; flex-wrap: wrap; gap: 6px; }
+  .erros button { padding: 6px 10px; border: 1px dashed var(--borda); border-radius: 6px; background: transparent;
+                  color: var(--texto); cursor: pointer; font-size: .8rem; }
+
+  .io { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 1000px) { .io { grid-template-columns: 1fr; } }
+  .rotulo { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin-bottom: 6px; }
+  .linha-req { font-family: Consolas, monospace; font-size: .95rem; margin-bottom: 10px; word-break: break-all; }
+  pre { margin: 0; padding: 12px; background: var(--codigo-bg); border: 1px solid var(--borda); border-radius: 6px;
+        font-family: Consolas, monospace; font-size: .85rem; overflow-x: auto; min-height: 60px; white-space: pre-wrap; }
+  .status { font-family: Consolas, monospace; font-weight: 700; font-size: 1.1rem; }
+  .s2 { color: var(--s2); } .s4 { color: var(--s4); }
+  .explica { font-size: .85rem; color: var(--suave); margin: 4px 0 10px; }
+  .placeholder { color: var(--suave); text-align: center; padding: 40px 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--borda); }
+  th { font-size: .75rem; text-transform: uppercase; color: var(--suave); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--codigo-bg); }
+  td code { font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/">Cadastro</a>
+  <a href="/simulador" class="ativo">Simulador da API</a>
+  <a href="/docs">Docs técnicas</a>
+</nav>
+
+<main>
+  <h1>Simulador da API</h1>
+  <p class="sub">Escolha uma operação do CRUD, ajuste os dados e veja exatamente o que é <strong>enviado</strong> (input) e o que a API <strong>devolve</strong> (output).</p>
+
+  <div class="grade">
+    <!-- COLUNA ESQUERDA: montar a requisição -->
+    <section class="card">
+      <h2>1. Monte a requisição</h2>
+      <div class="operacoes" id="operacoes"></div>
+
+      <label id="campo-id" hidden>Equipamento (id)
+        <select id="id"></select>
+      </label>
+      <label id="campo-filtro" hidden>Filtro de status (query string)
+        <select id="filtro">
+          <option value="">(sem filtro)</option>
+          <option value="operando">operando</option>
+          <option value="manutencao">manutencao</option>
+          <option value="parado">parado</option>
+        </select>
+      </label>
+      <label id="campo-corpo" hidden>Corpo da requisição (JSON)
+        <textarea id="corpo" spellcheck="false"></textarea>
+      </label>
+
+      <button class="enviar" id="enviar">Enviar requisição</button>
+
+      <div class="rotulo" style="margin-top:16px">Simular erros</div>
+      <div class="erros">
+        <button data-cenario="409">Tag duplicada (409)</button>
+        <button data-cenario="422">Status inválido (422)</button>
+        <button data-cenario="404">Id inexistente (404)</button>
+      </div>
+    </section>
+
+    <!-- COLUNA DIREITA: input e output -->
+    <div>
+      <section class="card">
+        <h2>2. Input e output</h2>
+        <div class="io">
+          <div>
+            <div class="rotulo">Input: requisição enviada</div>
+            <div class="linha-req" id="req-linha">—</div>
+            <pre id="req-corpo">(nenhuma requisição ainda)</pre>
+          </div>
+          <div>
+            <div class="rotulo">Output: resposta da API</div>
+            <div class="status" id="resp-status">—</div>
+            <div class="explica" id="resp-explica"></div>
+            <pre id="resp-corpo"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. Histórico <span style="font-weight:normal;color:var(--suave);font-size:.85rem">(clique para rever)</span></h2>
+        <table>
+          <thead><tr><th>Hora</th><th>Requisição</th><th>Status</th><th>Tempo</th></tr></thead>
+          <tbody id="historico"><tr><td colspan="4" class="placeholder">Vazio</td></tr></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = "/equipamentos";
+
+// As 5 operações do CRUD e quais campos cada uma usa
+const OPERACOES = [
+  { chave: "criar",     metodo: "POST",   nome: "Cadastrar",          usaId: false, usaCorpo: true  },
+  { chave: "listar",    metodo: "GET",    nome: "Listar todos",       usaId: false, usaCorpo: false, usaFiltro: true },
+  { chave: "obter",     metodo: "GET",    nome: "Buscar por id",      usaId: true,  usaCorpo: false },
+  { chave: "atualizar", metodo: "PATCH",  nome: "Atualizar",          usaId: true,  usaCorpo: true  },
+  { chave: "remover",   metodo: "DELETE", nome: "Excluir",            usaId: true,  usaCorpo: false },
+];
+
+// O que cada código HTTP significa, em português
+const SIGNIFICADO = {
+  200: "OK: a operação deu certo e a API devolveu os dados.",
+  201: "Created: o recurso foi criado. A API devolve o registro com id e data gerados.",
+  204: "No Content: deu certo, e não há nada para devolver (o registro foi apagado).",
+  404: "Not Found: não existe equipamento com esse id.",
+  409: "Conflict: a operação bate com uma regra de negócio (tag já cadastrada).",
+  422: "Unprocessable Entity: os dados enviados não passaram na validação (Pydantic).",
+};
+
+const $ = (id) => document.getElementById(id);
+let opAtual = OPERACOES[0];
+let equipamentos = [];
+const historico = [];
+
+const json = (obj) => JSON.stringify(obj, null, 2);
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Busca os cadastros reais para preencher o seletor de id e os exemplos
+async function atualizarCadastros() {
+  equipamentos = await (await fetch(`${API}?limit=100`)).json();
+  const idAnterior = $("id").value;
+  $("id").innerHTML = equipamentos.length
+    ? equipamentos.map((e) => `<option value="${e.id}">${e.id} — ${esc(e.tag)} (${esc(e.nome)})</option>`).join("")
+    : `<option value="1">Nenhum cadastro (use 1 para ver o 404)</option>`;
+  if (equipamentos.some((e) => String(e.id) === idAnterior)) $("id").value = idAnterior;
+}
+
+function exemploCorpo() {
+  if (opAtual.chave === "criar") {
+    const n = equipamentos.length + 1;
+    return json({ tag: `EQ-${String(n).padStart(3, "0")}`, nome: "Peneira vibratória", tipo: "peneira", status: "operando" });
+  }
+  if (opAtual.chave === "atualizar") {
+    const e = equipamentos.find((x) => String(x.id) === $("id").value);
+    return json({ status: e && e.status === "operando" ? "manutencao" : "operando" });
+  }
+  return "";
+}
+
+function selecionar(chave) {
+  opAtual = OPERACOES.find((o) => o.chave === chave);
+  document.querySelectorAll(".op").forEach((b) => b.classList.toggle("sel", b.dataset.chave === chave));
+  $("campo-id").hidden = !opAtual.usaId;
+  $("campo-corpo").hidden = !opAtual.usaCorpo;
+  $("campo-filtro").hidden = !opAtual.usaFiltro;
+  $("corpo").value = exemploCorpo();
+}
+
+function montarUrl() {
+  if (opAtual.usaId) return `${API}/${$("id").value}`;
+  if (opAtual.usaFiltro && $("filtro").value) return `${API}?status=${$("filtro").value}`;
+  return API;
+}
+
+// Envia a requisição e registra input + output
+async function enviar(metodo, url, corpoTexto) {
+  let corpo = null;
+  if (corpoTexto) {
+    try { corpo = JSON.parse(corpoTexto); }
+    catch { return alert("O corpo não é um JSON válido. Confira vírgulas e aspas."); }
+  }
+  const inicio = performance.now();
+  const resp = await fetch(url, {
+    method: metodo,
+    headers: corpo ? { "Content-Type": "application/json" } : {},
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  });
+  const ms = Math.round(performance.now() - inicio);
+  const texto = await resp.text();
+  const saida = texto ? JSON.parse(texto) : null;
+
+  const registro = { hora: new Date().toLocaleTimeString("pt-BR"), metodo, url, corpo, status: resp.status, saida, ms };
+  historico.unshift(registro);
+  mostrar(registro);
+  desenharHistorico();
+  await atualizarCadastros();  // a lista de ids muda depois de POST/DELETE
+}
+
+function mostrar(r) {
+  $("req-linha").innerHTML = `<span class="metodo ${r.metodo}">${r.metodo}</span> ${esc(r.url)}`;
+  $("req-corpo").textContent = r.corpo ? json(r.corpo) : "(sem corpo: GET e DELETE não enviam dados)";
+  $("resp-status").textContent = `${r.status}`;
+  $("resp-status").className = `status ${r.status < 400 ? "s2" : "s4"}`;
+  $("resp-explica").textContent = `${SIGNIFICADO[r.status] || ""}  (${r.ms} ms)`;
+  $("resp-corpo").textContent = r.saida === null ? "(resposta vazia)" : json(r.saida);
+}
+
+function desenharHistorico() {
+  $("historico").innerHTML = historico.map((r, i) => `
+    <tr data-i="${i}">
+      <td>${r.hora}</td>
+      <td><span class="metodo ${r.metodo}">${r.metodo}</span> <code>${esc(r.url)}</code></td>
+      <td class="${r.status < 400 ? "s2" : "s4"}"><strong>${r.status}</strong></td>
+      <td>${r.ms} ms</td>
+    </tr>`).join("");
+}
+
+// Cenários de erro prontos, montados a partir dos cadastros reais
+async function cenario(codigo) {
+  if (codigo === "409") {
+    if (!equipamentos.length) return alert("Cadastre ao menos um equipamento primeiro.");
+    const e = equipamentos[0];
+    return enviar("POST", API, json({ tag: e.tag, nome: "Cópia", tipo: e.tipo }));
+  }
+  if (codigo === "422") {
+    return enviar("POST", API, json({ tag: "X-1", nome: "Teste", tipo: "bomba", status: "quebrado" }));
+  }
+  const inexistente = Math.max(0, ...equipamentos.map((e) => e.id)) + 999;
+  return enviar("GET", `${API}/${inexistente}`, "");
+}
+
+// Liga os botões
+$("operacoes").innerHTML = OPERACOES.map((o) => `
+  <button class="op" data-chave="${o.chave}">
+    <span class="metodo ${o.metodo}">${o.metodo}</span> ${o.nome}
+  </button>`).join("");
+document.querySelectorAll(".op").forEach((b) => b.addEventListener("click", () => selecionar(b.dataset.chave)));
+document.querySelectorAll("[data-cenario]").forEach((b) =>
+  b.addEventListener("click", () => cenario(b.dataset.cenario)));
+$("id").addEventListener("change", () => { if (opAtual.chave === "atualizar") $("corpo").value = exemploCorpo(); });
+$("enviar").addEventListener("click", () =>
+  enviar(opAtual.metodo, montarUrl(), opAtual.usaCorpo ? $("corpo").value : ""));
+$("historico").addEventListener("click", (ev) => {
+  const tr = ev.target.closest("tr[data-i]");
+  if (tr) mostrar(historico[tr.dataset.i]);
+});
+
+atualizarCadastros().then(() => selecionar("criar"));
+</script>
+</body>
+</html>
